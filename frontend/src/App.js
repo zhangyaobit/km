@@ -124,17 +124,17 @@ function App() {
       .attr('height', height);
 
     const g = svg.append('g')
-      .attr('transform', `translate(${width / 2},50)`);
+      .attr('transform', `translate(80,${height / 2})`);
 
-    // Create tree layout with better spacing
+    // Create tree layout with better spacing (horizontal layout)
     const treeLayout = d3.tree()
-      .size([width * 2, height - 100])
+      .size([height * 6, width - 300])
       .separation((a, b) => {
-        // Increase separation based on depth and sibling relationship
-        const baseSeparation = a.parent === b.parent ? 2.5 : 3.5;
-        // Add more spacing for deeper nodes which tend to have longer names
-        const depthFactor = 1 + (a.depth * 0.2);
-        return baseSeparation * depthFactor;
+        // Much larger separation for better readability
+        const baseSeparation = a.parent === b.parent ? 4.0 : 5.0;
+        // Add extra spacing for nodes with children to prevent overlap
+        const childrenFactor = (a.children || a._children ? 0.5 : 0) + (b.children || b._children ? 0.5 : 0);
+        return baseSeparation + childrenFactor;
       });
 
     // Create hierarchy
@@ -147,9 +147,9 @@ function App() {
       .enter()
       .append('path')
       .attr('class', 'link')
-      .attr('d', d3.linkVertical()
-        .x(d => d.x)
-        .y(d => d.y))
+      .attr('d', d3.linkHorizontal()
+        .x(d => d.y)
+        .y(d => d.x))
       .attr('fill', 'none')
       .attr('stroke', '#64748b')
       .attr('stroke-width', 2)
@@ -164,7 +164,7 @@ function App() {
       .enter()
       .append('g')
       .attr('class', 'node')
-      .attr('transform', d => `translate(${d.x},${d.y})`)
+      .attr('transform', d => `translate(${d.y},${d.x})`)
       .style('opacity', 0);
 
     // Add circles for nodes
@@ -196,13 +196,14 @@ function App() {
 
     // Add text labels
     nodes.append('text')
-      .attr('dy', d => d.depth === 0 ? 50 : 35)
-      .attr('text-anchor', 'middle')
+      .attr('dx', d => d.depth === 0 ? 40 : 30)
+      .attr('dy', 5)
+      .attr('text-anchor', 'start')
       .style('font-size', d => d.depth === 0 ? '16px' : '14px')
       .style('font-weight', d => d.depth === 0 ? 'bold' : 'normal')
       .style('fill', '#1e293b')
       .text(d => {
-        const maxLength = 20;
+        const maxLength = 25;
         return d.data.name.length > maxLength 
           ? d.data.name.substring(0, maxLength) + '...' 
           : d.data.name;
@@ -216,14 +217,21 @@ function App() {
 
     // Add zoom functionality
     const zoom = d3.zoom()
-      .scaleExtent([0.5, 3])
+      .scaleExtent([0.3, 3])
       .on('zoom', (event) => {
         transformRef.current = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
-        g.attr('transform', `translate(${width / 2 + event.transform.x},${50 + event.transform.y}) scale(${event.transform.k})`);
+        g.attr('transform', `translate(${80 + event.transform.x},${height / 2 + event.transform.y}) scale(${event.transform.k})`);
       });
 
     svg.call(zoom);
     zoomRef.current = zoom;
+    
+    // Apply initial zoom to fit the tree better
+    const initialScale = 0.25;
+    const initialTransform = d3.zoomIdentity
+      .translate(0, 0)
+      .scale(initialScale);
+    svg.call(zoom.transform, initialTransform);
   };
 
   const showTooltip = (event, data) => {
