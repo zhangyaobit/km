@@ -1,6 +1,8 @@
 import os
 import asyncio
 import argparse
+import json
+import re
 from dotenv import load_dotenv
 load_dotenv()
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -19,7 +21,7 @@ class LLMService:
             convert_system_message_to_human=True,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             max_retries=1,
-            request_timeout=10
+            request_timeout=30
         )
         self.memory = ConversationBufferMemory()
         self.conversation = ConversationChain(
@@ -31,6 +33,99 @@ class LLMService:
     async def get_response(self, message: str) -> str:
         response = self.conversation.predict(input=message)
         return response
+    
+    async def generate_knowledge_tree(self, concept: str) -> dict:
+        """
+        Generate a hierarchical knowledge dependency tree for a given concept.
+        Returns a structured JSON tree showing prerequisites and dependencies.
+        """
+        prompt = f"""You are a knowledge mapping expert. Create a comprehensive learning dependency tree for the concept: "{concept}"
+
+Please structure your response as a JSON object with the following format:
+{{
+  "name": "Main Concept",
+  "description": "Brief description of the concept",
+  "children": [
+    {{
+      "name": "Prerequisite 1",
+      "description": "Brief description",
+      "children": [
+        {{
+          "name": "Sub-prerequisite 1.1",
+          "description": "Brief description",
+          "children": []
+        }}
+      ]
+    }},
+    {{
+      "name": "Prerequisite 2",
+      "description": "Brief description",
+      "children": []
+    }}
+  ]
+}}
+
+Rules:
+1. The root should be the main concept: "{concept}"
+2. Children should be prerequisites or foundational knowledge needed to understand the parent
+3. Go 2-4 levels deep in the tree
+4. Each node should have "name", "description", and "children" fields
+5. Include 3-5 main branches with relevant sub-branches
+6. Focus on the logical learning path from fundamentals to advanced
+7. IMPORTANT: Return ONLY valid JSON, no markdown formatting, no extra text
+
+Generate the knowledge dependency tree for: {concept}"""
+
+        try:
+            response = await asyncio.to_thread(self.llm.invoke, prompt)
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            # Try to extract JSON from response
+            response_text = response_text.strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith("```"):
+                response_text = re.sub(r'^```(?:json)?\n', '', response_text)
+                response_text = re.sub(r'\n```$', '', response_text)
+            
+            # Parse the JSON
+            tree_data = json.loads(response_text)
+            
+            return tree_data
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {e}")
+            print(f"Response was: {response_text[:500]}")
+            
+            # Return a fallback structure
+            return {
+                "name": concept,
+                "description": f"A knowledge map for {concept}",
+                "children": [
+                    {
+                        "name": "Foundation",
+                        "description": "Basic foundational knowledge",
+                        "children": []
+                    },
+                    {
+                        "name": "Core Concepts",
+                        "description": "Main concepts to learn",
+                        "children": []
+                    },
+                    {
+                        "name": "Advanced Topics",
+                        "description": "Advanced understanding",
+                        "children": []
+                    }
+                ]
+            }
+        except Exception as e:
+            print(f"Error generating knowledge tree: {e}")
+            return {
+                "name": concept,
+                "description": f"Error generating map: {str(e)}",
+                "children": []
+            }
     
     def clear_history(self):
         self.memory.clear()
