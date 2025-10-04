@@ -94,13 +94,29 @@ function App() {
       event.preventDefault();
 
       // Update transform
-      const newTransform = isZoom
-        ? d3.zoomIdentity
-            .translate(transformRef.current.x, transformRef.current.y)
-            .scale(newScale)
-        : d3.zoomIdentity
+      let newTransform;
+      if (isZoom) {
+        // Zoom towards the center of the viewport (same as touchpad pinch)
+        const width = svgRef.current.clientWidth;
+        const height = svgRef.current.clientHeight;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        const oldScale = transformRef.current.k;
+        const scaleFactor = newScale / oldScale;
+        
+        // Calculate new translation to keep center point fixed
+        const newX = centerX - (centerX - transformRef.current.x) * scaleFactor;
+        const newY = centerY - (centerY - transformRef.current.y) * scaleFactor;
+        
+        newTransform = d3.zoomIdentity
+            .translate(newX, newY)
+            .scale(newScale);
+      } else {
+        newTransform = d3.zoomIdentity
             .translate(transformRef.current.x + dx, transformRef.current.y + dy)
             .scale(transformRef.current.k);
+      }
 
       d3.select(svgRef.current)
         .transition()
