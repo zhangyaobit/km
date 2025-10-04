@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { calculateBoundingBox, calculateFitTransform, getNodeColor, truncateText } from '../utils/d3Utils';
+import { calculateBoundingBox, calculateFitTransform, getNodeColor, truncateText, resolveTextCollisions } from '../utils/d3Utils';
 
 /**
  * Render tree links (connections between nodes)
@@ -68,6 +68,11 @@ const renderNodes = (g, treeData, showTooltip, hideTooltip) => {
     .style('font-weight', d => d.depth === 0 ? 'bold' : 'normal')
     .style('fill', '#1e293b')
     .text(d => truncateText(d.data.name));
+
+  // Resolve text collisions after a short delay to ensure text is rendered
+  setTimeout(() => {
+    resolveTextCollisions(nodes);
+  }, 50);
 
   // Animate nodes
   nodes.transition()
@@ -142,9 +147,9 @@ export const useD3Tree = (knowledgeTree, showTooltip, hideTooltip) => {
 
     // Create tree layout (horizontal orientation)
     const treeLayout = d3.tree()
-      .size([height * 6, width - 300])
+      .size([height * 8, width - 300])
       .separation((a, b) => {
-        const baseSeparation = a.parent === b.parent ? 4.0 : 5.0;
+        const baseSeparation = a.parent === b.parent ? 5.5 : 6.5;
         const childrenFactor = (a.children || a._children ? 0.5 : 0) + (b.children || b._children ? 0.5 : 0);
         return baseSeparation + childrenFactor;
       });
