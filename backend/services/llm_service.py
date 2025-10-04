@@ -130,6 +130,40 @@ Generate the knowledge dependency tree for: {concept}"""
                 "children": []
             }
     
+    async def explain_concept(self, concept_name: str, original_query: str, knowledge_tree: dict) -> str:
+        """
+        Generate a detailed explanation for a specific concept, given the context of
+        the original query and the full knowledge tree.
+        """
+        prompt = f"""You are an expert educator explaining concepts in a clear, detailed manner.
+
+Original Learning Goal: "{original_query}"
+
+Full Knowledge Map Context:
+{json.dumps(knowledge_tree, indent=2)}
+
+Now, provide a detailed explanation specifically for this concept: "{concept_name}"
+
+Your explanation should:
+1. Focus ONLY on explaining "{concept_name}" in detail
+2. Be aware of the context (the original goal was "{original_query}")
+3. Explain what {concept_name} is, why it matters in the context of learning {original_query}
+4. Provide 2-3 concrete examples or applications
+5. If relevant, briefly mention how it connects to the broader learning path
+6. Keep the explanation clear, educational, and accessible
+7. Use markdown formatting for better readability
+8. Aim for 3-5 paragraphs
+
+Provide a focused, comprehensive explanation of: {concept_name}"""
+
+        try:
+            response = await asyncio.to_thread(self.llm.invoke, prompt)
+            explanation = response.content if hasattr(response, 'content') else str(response)
+            return explanation.strip()
+        except Exception as e:
+            print(f"Error generating explanation: {e}")
+            return f"Error generating explanation for {concept_name}: {str(e)}"
+    
     def clear_history(self):
         self.memory.clear()
     

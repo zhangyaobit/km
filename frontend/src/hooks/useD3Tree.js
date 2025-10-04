@@ -26,7 +26,7 @@ const renderLinks = (g, treeData) => {
 /**
  * Render tree nodes with circles and labels
  */
-const renderNodes = (g, treeData, showTooltip, hideTooltip) => {
+const renderNodes = (g, treeData, showTooltip, hideTooltip, onNodeClick) => {
   const nodes = g.selectAll('.node')
     .data(treeData.descendants())
     .enter()
@@ -57,6 +57,12 @@ const renderNodes = (g, treeData, showTooltip, hideTooltip) => {
         .attr('r', d.depth === 0 ? 30 : 20);
       
       hideTooltip();
+    })
+    .on('click', function(event, d) {
+      event.stopPropagation();
+      if (onNodeClick) {
+        onNodeClick(d.data);
+      }
     });
 
   // Add text labels
@@ -67,7 +73,14 @@ const renderNodes = (g, treeData, showTooltip, hideTooltip) => {
     .style('font-size', d => d.depth === 0 ? '42px' : '33px')
     .style('font-weight', d => d.depth === 0 ? 'bold' : 'normal')
     .style('fill', '#1e293b')
-    .text(d => truncateText(d.data.name));
+    .style('cursor', 'pointer')
+    .text(d => truncateText(d.data.name))
+    .on('click', function(event, d) {
+      event.stopPropagation();
+      if (onNodeClick) {
+        onNodeClick(d.data);
+      }
+    });
 
   // Resolve text collisions after a short delay to ensure text is rendered
   setTimeout(() => {
@@ -122,13 +135,20 @@ const fitGraphToCanvas = (svg, zoom, treeData, width, height) => {
  * @param {Object} knowledgeTree - Tree data to visualize
  * @param {Function} showTooltip - Function to show tooltip
  * @param {Function} hideTooltip - Function to hide tooltip
+ * @param {Function} onNodeClick - Function to handle node clicks
  * @returns {Object} Refs for SVG and tree data, plus zoom ref
  */
-export const useD3Tree = (knowledgeTree, showTooltip, hideTooltip) => {
+export const useD3Tree = (knowledgeTree, showTooltip, hideTooltip, onNodeClick) => {
   const svgRef = useRef(null);
   const treeDataRef = useRef(null);
   const transformRef = useRef({ x: 0, y: 0, k: 1 });
   const zoomRef = useRef(null);
+  const onNodeClickRef = useRef(onNodeClick);
+  
+  // Update the ref when onNodeClick changes
+  useEffect(() => {
+    onNodeClickRef.current = onNodeClick;
+  }, [onNodeClick]);
 
   useEffect(() => {
     if (!knowledgeTree || !svgRef.current) return;
@@ -159,17 +179,17 @@ export const useD3Tree = (knowledgeTree, showTooltip, hideTooltip) => {
     const treeData = treeLayout(root);
     treeDataRef.current = treeData;
 
-    // Render components
+    // Render components - use ref to get latest callback
     renderLinks(g, treeData);
-    renderNodes(g, treeData, showTooltip, hideTooltip);
+    renderNodes(g, treeData, showTooltip, hideTooltip, (nodeData) => onNodeClickRef.current(nodeData));
     
     // Setup zoom and fit to canvas
     const zoom = setupZoom(svg, g, transformRef, zoomRef);
     fitGraphToCanvas(svg, zoom, treeData, width, height);
     
-    // Focus on SVG for keyboard navigation
+    // Focus on SVG for keyboard navigation, but only if not typing in an input
     setTimeout(() => {
-      if (svgRef.current) {
+      if (svgRef.current && document.activeElement?.tagName !== 'INPUT') {
         svgRef.current.focus();
       }
     }, 100);

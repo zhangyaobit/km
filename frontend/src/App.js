@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
 import { useTooltip } from './hooks/useTooltip';
 import { useD3Tree } from './hooks/useD3Tree';
@@ -10,18 +10,58 @@ function App() {
   const [knowledgeTree, setKnowledgeTree] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [explanation, setExplanation] = useState(null);
+  const [explanationLoading, setExplanationLoading] = useState(false);
+  const [selectedConcept, setSelectedConcept] = useState(null);
 
   // Custom hooks
   const { tooltipRef, showTooltip, hideTooltip } = useTooltip();
+  
+  // Node click handler
+  const handleNodeClick = useCallback(async (nodeData) => {
+    if (!knowledgeTree || !concept) return;
+    
+    setSelectedConcept(nodeData.name);
+    setExplanationLoading(true);
+    setExplanation(null);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/explain-concept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          concept_name: nodeData.name,
+          original_query: concept,
+          knowledge_tree: knowledgeTree
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate explanation');
+      }
+
+      const data = await response.json();
+      setExplanation(data.explanation);
+    } catch (err) {
+      console.error('Error:', err);
+      setExplanation('Error generating explanation. Please try again.');
+    } finally {
+      setExplanationLoading(false);
+    }
+  }, [knowledgeTree, concept]);
+  
   const { svgRef, treeDataRef, transformRef, zoomRef } = useD3Tree(
     knowledgeTree, 
     showTooltip, 
-    hideTooltip
+    hideTooltip,
+    handleNodeClick
   );
   
   useKeyboardNavigation(svgRef, treeDataRef, transformRef, zoomRef, !!knowledgeTree);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (concept.trim() === '') return;
 
@@ -50,7 +90,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [concept]);
 
   return (
     <div style={{
@@ -155,6 +195,151 @@ function App() {
           zIndex: 1000
         }}
       />
+
+      {/* Explanation Modal */}
+      {(explanation || explanationLoading || selectedConcept) && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '20px'
+          }}
+          onClick={() => {
+            setExplanation(null);
+            setSelectedConcept(null);
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              position: 'sticky',
+              top: 0,
+              background: 'white',
+              zIndex: 1
+            }}>
+              <h2 style={{ margin: 0, fontSize: '24px', color: '#1e293b', fontWeight: '600' }}>
+                {selectedConcept}
+              </h2>
+              <button
+                onClick={() => {
+                  setExplanation(null);
+                  setSelectedConcept(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '28px',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#f1f5f9'}
+                onMouseLeave={(e) => e.target.style.background = 'none'}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '24px' }}>
+              {explanationLoading && (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '4px solid #e5e7eb',
+                    borderTop: '4px solid #8b5cf6',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 16px'
+                  }}></div>
+                  <div style={{ color: '#64748b', fontSize: '16px' }}>
+                    Generating explanation...
+                  </div>
+                </div>
+              )}
+              
+              {explanation && !explanationLoading && (
+                <div style={{
+                  fontSize: '16px',
+                  lineHeight: '1.7',
+                  color: '#334155'
+                }}>
+                  {/* Render markdown-style content */}
+                  {explanation.split('\n').map((paragraph, idx) => {
+                    // Simple markdown parsing for bold and headings
+                    if (paragraph.startsWith('###')) {
+                      return (
+                        <h3 key={idx} style={{ 
+                          fontSize: '18px', 
+                          fontWeight: '600', 
+                          marginTop: '20px', 
+                          marginBottom: '10px',
+                          color: '#1e293b'
+                        }}>
+                          {paragraph.replace('###', '').trim()}
+                        </h3>
+                      );
+                    } else if (paragraph.startsWith('##')) {
+                      return (
+                        <h2 key={idx} style={{ 
+                          fontSize: '20px', 
+                          fontWeight: '600', 
+                          marginTop: '24px', 
+                          marginBottom: '12px',
+                          color: '#1e293b'
+                        }}>
+                          {paragraph.replace('##', '').trim()}
+                        </h2>
+                      );
+                    } else if (paragraph.trim() === '') {
+                      return <br key={idx} />;
+                    } else {
+                      return (
+                        <p key={idx} style={{ marginBottom: '12px' }}>
+                          {paragraph}
+                        </p>
+                      );
+                    }
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
