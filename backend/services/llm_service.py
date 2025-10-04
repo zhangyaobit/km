@@ -41,25 +41,33 @@ class LLMService:
         """
         prompt = f"""You are a knowledge mapping expert. Create a comprehensive learning dependency tree for the concept: "{concept}"
 
+IMPORTANT CONCEPTS:
+- **Atomic Concept**: A fundamental, indivisible concept that can be learned in 5-15 minutes (leaf nodes with no children)
+- **Composite Concept**: A higher-level concept that requires understanding multiple atomic concepts (non-leaf nodes with children)
+
 Please structure your response as a JSON object with the following format:
 {{
   "name": "Main Concept",
   "description": "Brief description of the concept",
+  "selfLearningTime": 10,
   "children": [
     {{
-      "name": "Prerequisite 1",
+      "name": "Prerequisite 1 (Composite)",
       "description": "Brief description",
+      "selfLearningTime": 8,
       "children": [
         {{
-          "name": "Sub-prerequisite 1.1",
+          "name": "Sub-prerequisite 1.1 (Atomic)",
           "description": "Brief description",
+          "selfLearningTime": 12,
           "children": []
         }}
       ]
     }},
     {{
-      "name": "Prerequisite 2",
+      "name": "Prerequisite 2 (Atomic)",
       "description": "Brief description",
+      "selfLearningTime": 7,
       "children": []
     }}
   ]
@@ -68,14 +76,23 @@ Please structure your response as a JSON object with the following format:
 Rules:
 1. The root should be the main concept: "{concept}"
 2. Children should be prerequisites or foundational knowledge needed to understand the parent
-3. Each node should have "name", "description", and "children" fields
-4. CRITICAL: Each node must be an ATOMIC concept that can be learned in ~10 minutes
-5. DO NOT use broad field or subject names like "Linear Algebra", "Calculus", "Special Relativity"
-6. INSTEAD use specific atomic concepts like "Matrix Multiplication", "Limit of a Function", "Time Dilation Formula"
-7. Break down broad subjects into their smallest constituent concepts
-8. Focus on the logical learning path from fundamentals to advanced
-9. Break down the tree as deeply as needed to ensure each concept is truly atomic and digestible
-10. IMPORTANT: Return ONLY valid JSON, no markdown formatting, no extra text
+3. Each node MUST have: "name", "description", "selfLearningTime" (in minutes), and "children" fields
+4. **ATOMIC CONCEPTS (Leaf nodes):**
+   - Must have NO children (empty children array)
+   - Must be truly indivisible, basic concepts
+   - selfLearningTime should be between 5-15 minutes
+   - Examples: "Number", "Addition", "Subtraction"
+5. **COMPOSITE CONCEPTS (Non-leaf nodes):**
+   - Must have at least one child
+   - Represent concepts that combine multiple atomic concepts
+   - selfLearningTime is the time to understand the concept itself (5-15 min), not including children
+   - Examples broken down: "Vector Addition" → ["Vector", "Addition"]
+6. DO NOT use broad field or subjectnames such as "Linear Algebra" or "Calculus" as composite or atomic concepts
+7. Expand composite concepts deeply - ensure leaf nodes are truly atomic and basic
+8. If a concept seems too complex for 5-15 minutes, it's composite - break it down further
+9. Focus on the logical learning path from fundamentals to advanced
+10. Estimate selfLearningTime realistically based on concept complexity (always 5-15 minutes)
+11. IMPORTANT: Return ONLY valid JSON, no markdown formatting, no extra text
 
 Generate the knowledge dependency tree for: {concept}"""
 
@@ -104,20 +121,24 @@ Generate the knowledge dependency tree for: {concept}"""
             return {
                 "name": concept,
                 "description": f"A knowledge map for {concept}",
+                "selfLearningTime": 10,
                 "children": [
                     {
                         "name": "Foundation",
                         "description": "Basic foundational knowledge",
+                        "selfLearningTime": 8,
                         "children": []
                     },
                     {
                         "name": "Core Concepts",
                         "description": "Main concepts to learn",
+                        "selfLearningTime": 10,
                         "children": []
                     },
                     {
                         "name": "Advanced Topics",
                         "description": "Advanced understanding",
+                        "selfLearningTime": 12,
                         "children": []
                     }
                 ]
@@ -127,6 +148,7 @@ Generate the knowledge dependency tree for: {concept}"""
             return {
                 "name": concept,
                 "description": f"Error generating map: {str(e)}",
+                "selfLearningTime": 10,
                 "children": []
             }
     

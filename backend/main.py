@@ -4,6 +4,37 @@ from pydantic import BaseModel
 from services.llm_service import llm_service
 
 
+def calculate_total_learning_time(node: dict) -> float:
+    """
+    Calculate total learning time for a node including all its children.
+    
+    Args:
+        node: A node in the knowledge tree
+        
+    Returns:
+        Total learning time in minutes (self + all descendants)
+    """
+    # Get self learning time (default to 10 if not provided)
+    self_time = node.get('selfLearningTime', 10)
+    
+    # Start with self time
+    total_time = self_time
+    
+    # Add learning time from all children recursively
+    children = node.get('children', [])
+    for child in children:
+        child_total = calculate_total_learning_time(child)
+        total_time += child_total
+    
+    # Add totalLearningTime to the node
+    node['totalLearningTime'] = round(total_time, 1)
+    
+    # Determine if node is atomic (leaf) or composite (has children)
+    node['isAtomic'] = len(children) == 0
+    
+    return total_time
+
+
 app = FastAPI()
 
 app.add_middleware(
@@ -32,6 +63,10 @@ async def generate_knowledge_map(request: ConceptRequest):
     Returns a hierarchical tree structure showing what needs to be learned.
     """
     knowledge_tree = await llm_service.generate_knowledge_tree(request.concept)
+    
+    # Calculate total learning time for all nodes (including marking atomic vs composite)
+    calculate_total_learning_time(knowledge_tree)
+    
     return knowledge_tree
 
 
