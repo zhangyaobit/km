@@ -278,7 +278,7 @@ function App() {
               borderRadius: '12px',
               maxWidth: '1400px',
               width: '100%',
-              maxHeight: '85vh',
+              height: '85vh',
               display: 'flex',
               flexDirection: 'column',
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
