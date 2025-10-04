@@ -14,37 +14,19 @@ This is a FastAPI backend service that responds to messages with predefined resp
 
 ### Build the Docker image:
 ```bash
-# Navigate to the backend directory
-cd mira/backend
+cd km/backend
+```
 
-# Build the image
-docker build -t mira-backend .
+```bash
+docker build -t km-backend .
 ```
 
 ### Run the container:
 ```bash
-# Run the container and map port 8000
-docker run -p 8000:8000 mira-backend
+docker run -d --name yao -p 8000:8000 -v ~/s/km:/km -w /km/backend km-backend sleep infinity
 ```
 
-## API Endpoint
-
-The service exposes one endpoint:
-
-- **POST** `/api/message`
-  - Request body: `{ "text": "your message" }`
-  - Response: `{ "response": "bot response" }`
-
-## Development Without Docker
-
-If you want to run the service without Docker:
-
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the service:
+### Run the service:
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
