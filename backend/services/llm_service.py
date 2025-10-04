@@ -6,8 +6,6 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationChain
 import google.generativeai as genai
 
 # DEFAULT_MODEL = "models/gemma-3-1b-it"
@@ -24,16 +22,6 @@ class LLMService:
             max_retries=0,  # Don't retry on failures
             request_timeout=10  # Reduced timeout to fail faster
         )
-        self.memory = ConversationBufferMemory()
-        self.conversation = ConversationChain(
-            llm=self.llm,
-            memory=self.memory,
-            verbose=True
-        )
-    
-    async def get_response(self, message: str) -> str:
-        response = self.conversation.predict(input=message)
-        return response
     
     async def generate_knowledge_tree(self, concept: str) -> dict:
         """
@@ -326,9 +314,6 @@ Provide your response:"""
             
             return f"I apologize, but I encountered an error processing your question. Please try again."
     
-    def clear_history(self):
-        self.memory.clear()
-    
     def list_models(self):
         """List all available models and their supported methods."""
         try:
@@ -375,8 +360,8 @@ if __name__ == "__main__":
         # Create service with specified model
         test_service = LLMService(model=args.model)
         print(f"Using model: {args.model}")
-        response = asyncio.run(test_service.get_response("Hello, how are you?"))
-        print(f"\nResponse: {response}")
+        response = test_service.llm.invoke("Hello, how are you?")
+        response_text = response.content if hasattr(response, 'content') else str(response)
+        print(f"\nResponse: {response_text}")
     else:
         parser.print_help()
-
