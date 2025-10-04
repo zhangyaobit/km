@@ -68,11 +68,14 @@ Please structure your response as a JSON object with the following format:
 Rules:
 1. The root should be the main concept: "{concept}"
 2. Children should be prerequisites or foundational knowledge needed to understand the parent
-3. Go 2-4 levels deep in the tree
-4. Each node should have "name", "description", and "children" fields
-5. Include 3-5 main branches with relevant sub-branches
-6. Focus on the logical learning path from fundamentals to advanced
-7. IMPORTANT: Return ONLY valid JSON, no markdown formatting, no extra text
+3. Each node should have "name", "description", and "children" fields
+4. CRITICAL: Each node must be an ATOMIC concept that can be learned in ~10 minutes
+5. DO NOT use broad field or subject names like "Linear Algebra", "Calculus", "Special Relativity"
+6. INSTEAD use specific atomic concepts like "Matrix Multiplication", "Limit of a Function", "Time Dilation Formula"
+7. Break down broad subjects into their smallest constituent concepts
+8. Focus on the logical learning path from fundamentals to advanced
+9. Break down the tree as deeply as needed to ensure each concept is truly atomic and digestible
+10. IMPORTANT: Return ONLY valid JSON, no markdown formatting, no extra text
 
 Generate the knowledge dependency tree for: {concept}"""
 
