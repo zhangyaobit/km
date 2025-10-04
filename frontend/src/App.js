@@ -258,55 +258,57 @@ function App() {
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* Header */}
+      {/* Compact Header with Search */}
       <div style={{
-        padding: '30px',
-        textAlign: 'center',
+        padding: '12px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '20px',
         color: 'white'
       }}>
-        <h1 style={{
-          margin: '0 0 10px 0',
-          fontSize: '42px',
-          fontWeight: '700',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.2)'
-        }}>
-          Knowledge Map
-        </h1>
-        <p style={{
-          margin: '0',
-          fontSize: '18px',
-          opacity: 0.95
-        }}>
-          Visualize learning paths and dependencies
-        </p>
-      </div>
+        {/* Title Section */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', minWidth: '0' }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '24px',
+            fontWeight: '700',
+            textShadow: '1px 1px 3px rgba(0,0,0,0.2)',
+            whiteSpace: 'nowrap'
+          }}>
+            Knowledge Map
+          </h1>
+          <span style={{
+            fontSize: '14px',
+            opacity: 0.9,
+            whiteSpace: 'nowrap',
+            display: window.innerWidth < 768 ? 'none' : 'inline'
+          }}>
+            Visualize learning paths
+          </span>
+        </div>
 
-      {/* Search Form */}
-      <div style={{
-        padding: '0 30px 20px',
-        display: 'flex',
-        justifyContent: 'center'
-      }}>
+        {/* Search Form */}
         <form onSubmit={handleSubmit} style={{
           display: 'flex',
-          gap: '12px',
-          maxWidth: '600px',
-          width: '100%'
+          gap: '10px',
+          flex: 1,
+          maxWidth: '600px'
         }}>
           <input
             type="text"
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
-            placeholder="What do you want to learn? (e.g., Machine Learning, React, Quantum Physics)"
+            placeholder="deep learning"
             disabled={loading}
             style={{
               flex: 1,
-              padding: '16px 20px',
-              fontSize: '16px',
+              padding: '10px 16px',
+              fontSize: '15px',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: '8px',
               outline: 'none',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               transition: 'all 0.3s ease'
             }}
           />
@@ -314,17 +316,17 @@ function App() {
             type="submit" 
             disabled={loading}
             style={{
-              padding: '16px 32px',
-              fontSize: '16px',
+              padding: '10px 24px',
+              fontSize: '15px',
               fontWeight: '600',
               background: loading ? '#94a3b8' : '#10b981',
               color: 'white',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               transition: 'all 0.3s ease',
-              minWidth: '140px'
+              whiteSpace: 'nowrap'
             }}
           >
             {loading ? 'Generating...' : 'Generate Map'}
@@ -335,16 +337,17 @@ function App() {
       {/* Error Message */}
       {error && (
         <div style={{
-          padding: '15px 30px',
+          padding: '0 20px 10px',
           textAlign: 'center'
         }}>
           <div style={{
             background: '#fee2e2',
             color: '#991b1b',
-            padding: '12px 20px',
-            borderRadius: '8px',
+            padding: '8px 16px',
+            borderRadius: '6px',
             display: 'inline-block',
-            fontWeight: '500'
+            fontWeight: '500',
+            fontSize: '14px'
           }}>
             {error}
           </div>
@@ -354,10 +357,10 @@ function App() {
       {/* Visualization Area */}
       <div style={{
         flex: 1,
-        margin: '0 30px 30px',
+        margin: '0 12px 12px',
         background: 'white',
-        borderRadius: '16px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+        borderRadius: '12px',
+        boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
         overflow: 'hidden',
         position: 'relative'
       }}>
