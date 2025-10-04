@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
+import MarkdownWithLatex from './components/MarkdownWithLatex';
 import { useTooltip } from './hooks/useTooltip';
 import { useD3Tree } from './hooks/useD3Tree';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
@@ -292,49 +293,7 @@ function App() {
               )}
               
               {explanation && !explanationLoading && (
-                <div style={{
-                  fontSize: '16px',
-                  lineHeight: '1.7',
-                  color: '#334155'
-                }}>
-                  {/* Render markdown-style content */}
-                  {explanation.split('\n').map((paragraph, idx) => {
-                    // Simple markdown parsing for bold and headings
-                    if (paragraph.startsWith('###')) {
-                      return (
-                        <h3 key={idx} style={{ 
-                          fontSize: '18px', 
-                          fontWeight: '600', 
-                          marginTop: '20px', 
-                          marginBottom: '10px',
-                          color: '#1e293b'
-                        }}>
-                          {paragraph.replace('###', '').trim()}
-                        </h3>
-                      );
-                    } else if (paragraph.startsWith('##')) {
-                      return (
-                        <h2 key={idx} style={{ 
-                          fontSize: '20px', 
-                          fontWeight: '600', 
-                          marginTop: '24px', 
-                          marginBottom: '12px',
-                          color: '#1e293b'
-                        }}>
-                          {paragraph.replace('##', '').trim()}
-                        </h2>
-                      );
-                    } else if (paragraph.trim() === '') {
-                      return <br key={idx} />;
-                    } else {
-                      return (
-                        <p key={idx} style={{ marginBottom: '12px' }}>
-                          {paragraph}
-                        </p>
-                      );
-                    }
-                  })}
-                </div>
+                <MarkdownWithLatex content={explanation} />
               )}
             </div>
           </div>

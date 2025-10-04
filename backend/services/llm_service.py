@@ -152,7 +152,11 @@ Your explanation should:
 5. If relevant, briefly mention how it connects to the broader learning path
 6. Keep the explanation clear, educational, and accessible
 7. Use markdown formatting for better readability
-8. Aim for 3-5 paragraphs
+8. **IMPORTANT: For any mathematical formulas or equations, use LaTeX notation:**
+   - For inline math, use single dollar signs: $x^2 + y^2 = z^2$
+   - For display math (centered equations), use double dollar signs: $$E = mc^2$$
+   - Example: "The quadratic formula is $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$"
+9. Aim for 3-5 paragraphs
 
 Provide a focused, comprehensive explanation of: {concept_name}"""
 
