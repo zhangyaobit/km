@@ -10,6 +10,7 @@ function App() {
   const tooltipRef = useRef(null);
   const transformRef = useRef({ x: 0, y: 0, k: 1 });
   const zoomRef = useRef(null);
+  const treeDataRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,6 +35,13 @@ function App() {
 
       const data = await response.json();
       setKnowledgeTree(data);
+      
+      // Focus on canvas after generating map
+      setTimeout(() => {
+        if (svgRef.current) {
+          svgRef.current.focus();
+        }
+      }, 100);
     } catch (err) {
       console.error('Error:', err);
       setError('Error generating knowledge map. Please try again.');
@@ -87,6 +95,58 @@ function App() {
           newScale = Math.max(transformRef.current.k / zoomFactor, 0.5);
           isZoom = true;
           break;
+        case 'f':
+          // Fit entire graph to canvas
+          if (!treeDataRef.current) return;
+          
+          event.preventDefault();
+          
+          const descendants = treeDataRef.current.descendants();
+          if (descendants.length === 0) return;
+          
+          // Calculate bounding box of all nodes (d.y is horizontal, d.x is vertical)
+          let minX = Infinity, maxX = -Infinity;
+          let minY = Infinity, maxY = -Infinity;
+          
+          descendants.forEach(d => {
+            minX = Math.min(minX, d.x);
+            maxX = Math.max(maxX, d.x);
+            minY = Math.min(minY, d.y);
+            maxY = Math.max(maxY, d.y);
+          });
+          
+          // Add padding
+          const padding = 100;
+          const boundingWidth = maxY - minY + padding * 2;
+          const boundingHeight = maxX - minX + padding * 2;
+          
+          const width = svgRef.current.clientWidth;
+          const height = svgRef.current.clientHeight;
+          
+          // Calculate scale to fit
+          const scale = Math.min(
+            width / boundingWidth,
+            height / boundingHeight,
+            3 // max scale
+          );
+          
+          // Calculate center of bounding box
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          
+          // Calculate translation to center the graph
+          const translateX = width / 2 - centerY * scale;
+          const translateY = height / 2 - centerX * scale;
+          
+          const fitTransform = d3.zoomIdentity
+            .translate(translateX, translateY)
+            .scale(scale);
+          
+          d3.select(svgRef.current)
+            .transition()
+            .duration(500)
+            .call(zoomRef.current.transform, fitTransform);
+          return;
         default:
           return;
       }
@@ -155,6 +215,7 @@ function App() {
     // Create hierarchy
     const root = d3.hierarchy(data);
     const treeData = treeLayout(root);
+    treeDataRef.current = treeData;
 
     // Add links
     g.selectAll('.link')
@@ -241,20 +302,44 @@ function App() {
     svg.call(zoom);
     zoomRef.current = zoom;
     
-    // Center the root node on initial load
-    // Get the actual root node position from the tree layout
-    const initialScale = 0.35;
-    const rootNodeX = treeData.x; // Vertical position in tree coordinates
-    const rootNodeY = treeData.y; // Horizontal position (depth) in tree coordinates
+    // Fit entire graph to canvas on initial load
+    const descendants = treeData.descendants();
     
-    // Position root node at 20% from left, centered vertically
-    // Note: In our horizontal layout, d.y is horizontal and d.x is vertical
-    const targetX = width * 0.2;
-    const targetY = height / 2;
+    // Calculate bounding box of all nodes (d.y is horizontal, d.x is vertical)
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    
+    descendants.forEach(d => {
+      minX = Math.min(minX, d.x);
+      maxX = Math.max(maxX, d.x);
+      minY = Math.min(minY, d.y);
+      maxY = Math.max(maxY, d.y);
+    });
+    
+    // Add padding
+    const padding = 100;
+    const boundingWidth = maxY - minY + padding * 2;
+    const boundingHeight = maxX - minX + padding * 2;
+    
+    // Calculate scale to fit
+    const scale = Math.min(
+      width / boundingWidth,
+      height / boundingHeight,
+      3 // max scale
+    );
+    
+    // Calculate center of bounding box
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    // Calculate translation to center the graph
+    const translateX = width / 2 - centerY * scale;
+    const translateY = height / 2 - centerX * scale;
     
     const initialTransform = d3.zoomIdentity
-      .translate(targetX - rootNodeY * initialScale, targetY - rootNodeX * initialScale)
-      .scale(initialScale);
+      .translate(translateX, translateY)
+      .scale(scale);
+    
     svg.call(zoom.transform, initialTransform);
   };
 
@@ -425,7 +510,7 @@ function App() {
             </div>
           </div>
         )}
-        <svg ref={svgRef} style={{ width: '100%', height: '100%' }}></svg>
+        <svg ref={svgRef} style={{ width: '100%', height: '100%', outline: 'none' }} tabIndex="0"></svg>
       </div>
 
       {/* Tooltip */}
