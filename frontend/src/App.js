@@ -8,6 +8,8 @@ function App() {
   const [error, setError] = useState(null);
   const svgRef = useRef(null);
   const tooltipRef = useRef(null);
+  const transformRef = useRef({ x: 0, y: 0, k: 1 });
+  const zoomRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,6 +46,70 @@ function App() {
     if (knowledgeTree && svgRef.current) {
       renderTree(knowledgeTree);
     }
+  }, [knowledgeTree]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!svgRef.current || !knowledgeTree || !zoomRef.current) return;
+      
+      // Check if user is typing in an input field
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const moveDistance = 50;
+      const zoomFactor = 1.2;
+      let dx = 0;
+      let dy = 0;
+      let newScale = transformRef.current.k;
+      let isZoom = false;
+
+      switch(event.key.toLowerCase()) {
+        case 'w':
+          dy = moveDistance;
+          break;
+        case 's':
+          dy = -moveDistance;
+          break;
+        case 'a':
+          dx = moveDistance;
+          break;
+        case 'd':
+          dx = -moveDistance;
+          break;
+        case 'k':
+          // Zoom in
+          newScale = Math.min(transformRef.current.k * zoomFactor, 3);
+          isZoom = true;
+          break;
+        case 'j':
+          // Zoom out
+          newScale = Math.max(transformRef.current.k / zoomFactor, 0.5);
+          isZoom = true;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+
+      // Update transform
+      const newTransform = isZoom
+        ? d3.zoomIdentity
+            .translate(transformRef.current.x, transformRef.current.y)
+            .scale(newScale)
+        : d3.zoomIdentity
+            .translate(transformRef.current.x + dx, transformRef.current.y + dy)
+            .scale(transformRef.current.k);
+
+      d3.select(svgRef.current)
+        .transition()
+        .duration(200)
+        .call(zoomRef.current.transform, newTransform);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [knowledgeTree]);
 
   const renderTree = (data) => {
@@ -152,10 +218,12 @@ function App() {
     const zoom = d3.zoom()
       .scaleExtent([0.5, 3])
       .on('zoom', (event) => {
+        transformRef.current = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
         g.attr('transform', `translate(${width / 2 + event.transform.x},${50 + event.transform.y}) scale(${event.transform.k})`);
       });
 
     svg.call(zoom);
+    zoomRef.current = zoom;
   };
 
   const showTooltip = (event, data) => {
