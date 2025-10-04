@@ -139,8 +139,7 @@ function App() {
       .attr('width', width)
       .attr('height', height);
 
-    const g = svg.append('g')
-      .attr('transform', `translate(80,${height / 2})`);
+    const g = svg.append('g');
 
     // Create tree layout with better spacing (horizontal layout)
     const treeLayout = d3.tree()
@@ -215,7 +214,7 @@ function App() {
       .attr('dx', d => d.depth === 0 ? 40 : 30)
       .attr('dy', 5)
       .attr('text-anchor', 'start')
-      .style('font-size', d => d.depth === 0 ? '16px' : '14px')
+      .style('font-size', d => d.depth === 0 ? '42px' : '33px')
       .style('font-weight', d => d.depth === 0 ? 'bold' : 'normal')
       .style('fill', '#1e293b')
       .text(d => {
@@ -236,16 +235,25 @@ function App() {
       .scaleExtent([0.3, 3])
       .on('zoom', (event) => {
         transformRef.current = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
-        g.attr('transform', `translate(${80 + event.transform.x},${height / 2 + event.transform.y}) scale(${event.transform.k})`);
+        g.attr('transform', `translate(${event.transform.x},${event.transform.y}) scale(${event.transform.k})`);
       });
 
     svg.call(zoom);
     zoomRef.current = zoom;
     
-    // Apply initial zoom to fit the tree better
-    const initialScale = 0.25;
+    // Center the root node on initial load
+    // Get the actual root node position from the tree layout
+    const initialScale = 0.35;
+    const rootNodeX = treeData.x; // Vertical position in tree coordinates
+    const rootNodeY = treeData.y; // Horizontal position (depth) in tree coordinates
+    
+    // Position root node at 20% from left, centered vertically
+    // Note: In our horizontal layout, d.y is horizontal and d.x is vertical
+    const targetX = width * 0.2;
+    const targetY = height / 2;
+    
     const initialTransform = d3.zoomIdentity
-      .translate(0, 0)
+      .translate(targetX - rootNodeY * initialScale, targetY - rootNodeX * initialScale)
       .scale(initialScale);
     svg.call(zoom.transform, initialTransform);
   };
