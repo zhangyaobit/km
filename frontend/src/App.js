@@ -60,10 +60,16 @@ function App() {
     const g = svg.append('g')
       .attr('transform', `translate(${width / 2},50)`);
 
-    // Create tree layout
+    // Create tree layout with better spacing
     const treeLayout = d3.tree()
-      .size([width - 200, height - 200])
-      .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
+      .size([width * 2, height - 100])
+      .separation((a, b) => {
+        // Increase separation based on depth and sibling relationship
+        const baseSeparation = a.parent === b.parent ? 2.5 : 3.5;
+        // Add more spacing for deeper nodes which tend to have longer names
+        const depthFactor = 1 + (a.depth * 0.2);
+        return baseSeparation * depthFactor;
+      });
 
     // Create hierarchy
     const root = d3.hierarchy(data);
