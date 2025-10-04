@@ -56,6 +56,15 @@ class ExplainRequest(BaseModel):
     knowledge_tree: dict
 
 
+class ChatRequest(BaseModel):
+    concept_name: str
+    original_query: str
+    knowledge_tree: dict
+    explanation: str
+    chat_history: list
+    user_message: str
+
+
 @app.post("/api/knowledge-map")
 async def generate_knowledge_map(request: ConceptRequest):
     """
@@ -81,4 +90,21 @@ async def explain_concept(request: ExplainRequest):
         request.original_query,
         request.knowledge_tree
     )
-    return {"explanation": explanation} 
+    return {"explanation": explanation}
+
+
+@app.post("/api/chat-about-explanation")
+async def chat_about_explanation(request: ChatRequest):
+    """
+    Handle chat messages about the explanation with full context.
+    Maintains conversation history for the current explanation session.
+    """
+    response = await llm_service.chat_about_explanation(
+        request.concept_name,
+        request.original_query,
+        request.knowledge_tree,
+        request.explanation,
+        request.chat_history,
+        request.user_message
+    )
+    return {"response": response} 

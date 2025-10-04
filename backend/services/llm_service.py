@@ -10,8 +10,9 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
 import google.generativeai as genai
 
-DEFAULT_MODEL = "models/gemma-3-1b-it"
-DEFAULT_MODEL = "models/gemini-2.0-flash-exp"
+# DEFAULT_MODEL = "models/gemma-3-1b-it"
+DEFAULT_MODEL = "models/gemma-3-27b-it"
+# DEFAULT_MODEL = "models/gemini-2.0-flash-exp"
 
 class LLMService:
     def __init__(self, model: str = DEFAULT_MODEL):  
@@ -21,7 +22,7 @@ class LLMService:
             convert_system_message_to_human=True,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             max_retries=0,  # Don't retry on failures
-            request_timeout=30
+            request_timeout=10  # Reduced timeout to fail faster
         )
         self.memory = ConversationBufferMemory()
         self.conversation = ConversationChain(
@@ -97,7 +98,11 @@ Rules:
 Generate the knowledge dependency tree for: {concept}"""
 
         try:
-            response = await asyncio.to_thread(self.llm.invoke, prompt)
+            # Use asyncio.wait_for to enforce a hard timeout
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self.llm.invoke, prompt),
+                timeout=45.0  # Hard timeout of 45 seconds for tree generation
+            )
             response_text = response.content if hasattr(response, 'content') else str(response)
             
             # Try to extract JSON from response
@@ -112,6 +117,16 @@ Generate the knowledge dependency tree for: {concept}"""
             tree_data = json.loads(response_text)
             
             return tree_data
+        
+        except asyncio.TimeoutError:
+            print("Knowledge tree generation timed out")
+            return {
+                "name": concept,
+                "description": "⚠️ Request timed out. This might be due to API rate limits. Please try again in a moment.",
+                "selfLearningTime": 0,
+                "children": [],
+                "error": "timeout"
+            }
             
         except json.JSONDecodeError as e:
             print(f"JSON Parse Error: {e}")
@@ -147,14 +162,24 @@ Generate the knowledge dependency tree for: {concept}"""
             error_str = str(e)
             print(f"Error generating knowledge tree: {e}")
             
-            # Check if it's a quota error
-            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str:
+            # Check if it's a quota error - return immediately
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str or "Quota exceeded" in error_str:
                 return {
                     "name": "⚠️ Quota Exceeded",
                     "description": "API quota limit reached. Please try again later or check your API plan and billing details.",
                     "selfLearningTime": 0,
                     "children": [],
                     "error": "quota_exceeded"
+                }
+            
+            # Check for rate limit errors
+            if "rate limit" in error_str.lower() or "too many requests" in error_str.lower():
+                return {
+                    "name": "⚠️ Rate Limit",
+                    "description": "Too many requests. Please wait a moment and try again.",
+                    "selfLearningTime": 0,
+                    "children": [],
+                    "error": "rate_limit"
                 }
             
             return {
@@ -196,18 +221,110 @@ Your explanation should:
 Provide a focused, comprehensive explanation of: {concept_name}"""
 
         try:
-            response = await asyncio.to_thread(self.llm.invoke, prompt)
+            # Use asyncio.wait_for to enforce a hard timeout
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self.llm.invoke, prompt),
+                timeout=30.0  # Hard timeout of 30 seconds for explanation
+            )
             explanation = response.content if hasattr(response, 'content') else str(response)
             return explanation.strip()
+        except asyncio.TimeoutError:
+            print("Explanation request timed out")
+            return "⚠️ **Request Timed Out**\n\nThe request took too long. This might be due to API rate limits. Please try again in a moment."
         except Exception as e:
             error_str = str(e)
             print(f"Error generating explanation: {e}")
             
-            # Check if it's a quota error
-            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str:
+            # Check if it's a quota error - return immediately
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str or "Quota exceeded" in error_str:
                 return "⚠️ **API Quota Exceeded**\n\nThe API quota limit has been reached. Please try again later or check your API plan and billing details.\n\nFor more information, visit: https://ai.google.dev/gemini-api/docs/rate-limits"
             
             return f"Error generating explanation for {concept_name}: {str(e)}"
+    
+    async def chat_about_explanation(
+        self, 
+        concept_name: str, 
+        original_query: str, 
+        knowledge_tree: dict, 
+        explanation: str,
+        chat_history: list,
+        user_message: str
+    ) -> str:
+        """
+        Handle chat messages about a concept explanation with full context.
+        Maintains the conversation history for follow-up questions.
+        
+        Args:
+            concept_name: The concept being discussed
+            original_query: The user's original learning goal
+            knowledge_tree: The full knowledge map
+            explanation: The initial explanation provided
+            chat_history: Previous chat messages [{"role": "user"/"assistant", "content": "..."}]
+            user_message: The current user question
+            
+        Returns:
+            AI response to the user's question
+        """
+        # Build context-aware prompt
+        context = f"""You are an expert tutor helping a student understand concepts.
+
+CONTEXT:
+- Original Learning Goal: "{original_query}"
+- Current Concept Being Discussed: "{concept_name}"
+- Knowledge Map Context: {json.dumps(knowledge_tree, indent=2)}
+
+INITIAL EXPLANATION PROVIDED:
+{explanation}
+
+"""
+        
+        # Add chat history
+        if chat_history:
+            context += "CONVERSATION HISTORY:\n"
+            for msg in chat_history:
+                role = "Student" if msg["role"] == "user" else "Tutor"
+                context += f"{role}: {msg['content']}\n"
+            context += "\n"
+        
+        # Add current question
+        context += f"""CURRENT STUDENT QUESTION:
+{user_message}
+
+INSTRUCTIONS:
+- Answer the student's question clearly and concisely
+- Reference the explanation and context when relevant
+- Use markdown formatting for better readability
+- For any mathematical formulas, use LaTeX notation ($...$ for inline, $$...$$ for display)
+- Be encouraging and educational
+- If the question is off-topic, gently redirect to the current concept
+- Keep responses focused and not too long
+
+Provide your response:"""
+
+        try:
+            # Use asyncio.wait_for to enforce a hard timeout
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self.llm.invoke, context),
+                timeout=15.0  # Hard timeout of 15 seconds
+            )
+            answer = response.content if hasattr(response, 'content') else str(response)
+            return answer.strip()
+        except asyncio.TimeoutError:
+            print("Chat request timed out")
+            return "⚠️ **Request Timed Out**\n\nThe request took too long. This might be due to API rate limits. Please try again in a moment."
+        except Exception as e:
+            error_str = str(e)
+            print(f"Error in chat about explanation: {e}")
+            
+            # Check if it's a quota error - return immediately
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str or "Quota exceeded" in error_str:
+                return "⚠️ **API Quota Exceeded**\n\nThe API quota limit has been reached. Please try again later or check your API plan.\n\nFor more information, visit: https://ai.google.dev/gemini-api/docs/rate-limits"
+            
+            # Check for rate limit errors
+            if "rate limit" in error_str.lower() or "too many requests" in error_str.lower():
+                return "⚠️ **Rate Limit Exceeded**\n\nToo many requests. Please wait a moment and try again."
+            
+            return f"I apologize, but I encountered an error processing your question. Please try again."
     
     def clear_history(self):
         self.memory.clear()
