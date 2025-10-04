@@ -20,7 +20,7 @@ class LLMService:
             temperature=0.7,
             convert_system_message_to_human=True,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
-            max_retries=1,
+            max_retries=0,  # Don't retry on failures
             request_timeout=30
         )
         self.memory = ConversationBufferMemory()
@@ -144,12 +144,25 @@ Generate the knowledge dependency tree for: {concept}"""
                 ]
             }
         except Exception as e:
+            error_str = str(e)
             print(f"Error generating knowledge tree: {e}")
+            
+            # Check if it's a quota error
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str:
+                return {
+                    "name": "⚠️ Quota Exceeded",
+                    "description": "API quota limit reached. Please try again later or check your API plan and billing details.",
+                    "selfLearningTime": 0,
+                    "children": [],
+                    "error": "quota_exceeded"
+                }
+            
             return {
                 "name": concept,
                 "description": f"Error generating map: {str(e)}",
                 "selfLearningTime": 10,
-                "children": []
+                "children": [],
+                "error": "generation_failed"
             }
     
     async def explain_concept(self, concept_name: str, original_query: str, knowledge_tree: dict) -> str:
@@ -187,7 +200,13 @@ Provide a focused, comprehensive explanation of: {concept_name}"""
             explanation = response.content if hasattr(response, 'content') else str(response)
             return explanation.strip()
         except Exception as e:
+            error_str = str(e)
             print(f"Error generating explanation: {e}")
+            
+            # Check if it's a quota error
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str:
+                return "⚠️ **API Quota Exceeded**\n\nThe API quota limit has been reached. Please try again later or check your API plan and billing details.\n\nFor more information, visit: https://ai.google.dev/gemini-api/docs/rate-limits"
+            
             return f"Error generating explanation for {concept_name}: {str(e)}"
     
     def clear_history(self):
