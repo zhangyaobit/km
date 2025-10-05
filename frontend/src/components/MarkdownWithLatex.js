@@ -68,27 +68,44 @@ function MarkdownWithLatex({ content }) {
   };
 
   const renderTextWithFormatting = (text) => {
-    // Handle both bold and italic markdown formatting
-    // Pattern matches: **bold**, __bold__, *italic*, _italic_
-    // Process in order: bold first, then italic
-    const parts = [];
-    let remainingText = text;
-    let keyCounter = 0;
+    // First, extract and protect image syntax from formatting
+    const images = [];
+    const imagePattern = /!\[([^\]]*)\]\(([^\)]+)\)/g;
+    let textWithPlaceholders = text;
+    let match;
+    let imageIndex = 0;
 
-    // Split by segments that need formatting
+    // Replace images with placeholders
+    while ((match = imagePattern.exec(text)) !== null) {
+      const placeholder = `__IMAGE_PLACEHOLDER_${imageIndex}__`;
+      images.push({
+        alt: match[1],
+        url: match[2],
+        placeholder: placeholder
+      });
+      textWithPlaceholders = textWithPlaceholders.replace(match[0], placeholder);
+      imageIndex++;
+    }
+
+    // Now handle formatting on the text (images are protected)
     const segments = [];
     let currentPos = 0;
 
     // Combined pattern to find all formatting markers
+    // Only match underscores/asterisks that are NOT inside our placeholders
     const formattingPattern = /(\*\*|__)((?:(?!\1).)+?)\1|(\*|_)((?:(?!\3).)+?)\3/g;
-    let match;
 
-    while ((match = formattingPattern.exec(text)) !== null) {
+    while ((match = formattingPattern.exec(textWithPlaceholders)) !== null) {
+      // Skip if this is inside an image placeholder
+      if (match[0].includes('__IMAGE_PLACEHOLDER_')) {
+        continue;
+      }
+
       // Add text before the match
       if (match.index > currentPos) {
         segments.push({
           type: 'text',
-          content: text.substring(currentPos, match.index)
+          content: textWithPlaceholders.substring(currentPos, match.index)
         });
       }
 
@@ -111,25 +128,55 @@ function MarkdownWithLatex({ content }) {
     }
 
     // Add remaining text
-    if (currentPos < text.length) {
+    if (currentPos < textWithPlaceholders.length) {
       segments.push({
         type: 'text',
-        content: text.substring(currentPos)
+        content: textWithPlaceholders.substring(currentPos)
       });
     }
 
     // Render segments
-    if (segments.length === 0) {
+    if (segments.length === 0 && images.length === 0) {
       return text;
     }
 
-    return segments.map((segment, idx) => {
+    const finalSegments = segments.length > 0 ? segments : [{ type: 'text', content: textWithPlaceholders }];
+
+    return finalSegments.map((segment, idx) => {
+      let content = segment.content;
+
+      // Replace image placeholders with actual img tags
+      images.forEach((img, imgIdx) => {
+        if (content && content.includes(img.placeholder)) {
+          const parts = content.split(img.placeholder);
+          content = parts.map((part, partIdx) => (
+            <React.Fragment key={`part-${idx}-${partIdx}`}>
+              {part}
+              {partIdx < parts.length - 1 && (
+                <img 
+                  src={img.url} 
+                  alt={img.alt}
+                  style={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                    display: 'block',
+                    margin: '16px 0',
+                    borderRadius: '8px'
+                  }}
+                  key={`img-${idx}-${imgIdx}`}
+                />
+              )}
+            </React.Fragment>
+          ));
+        }
+      });
+
       if (segment.type === 'bold') {
-        return <strong key={`bold-${idx}`}>{segment.content}</strong>;
+        return <strong key={`bold-${idx}`}>{content}</strong>;
       } else if (segment.type === 'italic') {
-        return <em key={`italic-${idx}`}>{segment.content}</em>;
+        return <em key={`italic-${idx}`}>{content}</em>;
       } else {
-        return <span key={`text-${idx}`}>{segment.content}</span>;
+        return <span key={`text-${idx}`}>{content}</span>;
       }
     });
   };

@@ -3,10 +3,13 @@ import asyncio
 import argparse
 import json
 import re
+from typing import Optional, List, Dict
 from dotenv import load_dotenv
 load_dotenv()
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
+from google import genai as google_genai
+from services.wiki import WikiImageRetrieval
 
 # DEFAULT_MODEL = "models/gemma-3-1b-it"
 DEFAULT_MODEL = "models/gemma-3-27b-it"
@@ -22,6 +25,8 @@ class LLMService:
             max_retries=0,  # Don't retry on failures
             request_timeout=10  # Reduced timeout to fail faster
         )
+        self.genai_client = google_genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        self.wiki_tool = WikiImageRetrieval()
     
     async def generate_knowledge_tree(self, concept: str) -> dict:
         """
@@ -178,11 +183,113 @@ Generate the knowledge dependency tree for: {concept}"""
                 "error": "generation_failed"
             }
     
-    async def explain_concept(self, concept_name: str, original_query: str, knowledge_tree: dict) -> str:
+    async def _find_wikipedia_images(self, concept_name: str, max_images: int = 3) -> Optional[List[Dict]]:
         """
-        Generate a detailed explanation for a specific concept, given the context of
-        the original query and the full knowledge tree.
+        Find and extract relevant Wikipedia images for a concept.
+        Returns None if no images found.
         """
+        try:
+            # Find Wikipedia page title
+            page_title = concept_name.replace(' ', '_')
+            
+            # Extract images
+            results = await asyncio.to_thread(self.wiki_tool.extract_images_detailed, page_title)
+            images = results.get('images', [])
+            
+            if not images:
+                return None
+            
+            # Select best images using batch analysis
+            selected = await self._select_relevant_images(images, concept_name, max_images)
+            return selected if selected else None
+            
+        except Exception as e:
+            print(f"Error extracting Wikipedia images: {e}")
+            return None
+    
+    async def _select_relevant_images(self, images: List[Dict], concept_name: str, max_images: int) -> Optional[List[Dict]]:
+        """
+        Select the most relevant images for explaining a concept using batch LLM analysis.
+        """
+        try:
+            # Prepare image data for batch analysis
+            images_data = []
+            for i, img in enumerate(images[:20]):  # Limit to first 20 to avoid token limits
+                images_data.append({
+                    'index': i,
+                    'caption': img['caption'][:200] if img['caption'] else 'No caption',
+                    'section_text': img.get('section_text', '')[:200] if img.get('section_text') else 'No context'
+                })
+            
+            prompt = f"""You are selecting images to help explain the concept "{concept_name}".
+
+Available images:
+{json.dumps(images_data, indent=2)}
+
+Select FEWER THAN {max_images} images that would be MOST helpful for understanding "{concept_name}". 
+Choose only essential images that directly illustrate the concept.
+
+Respond in JSON format:
+{{
+  "selected_images": [
+    {{
+      "index": 0,
+      "reason": "Brief reason why this image helps explain the concept"
+    }}
+  ]
+}}
+
+Return ONLY valid JSON, no extra text."""
+            
+            response = await asyncio.to_thread(
+                self.genai_client.models.generate_content,
+                model='models/gemma-3-27b-it',
+                contents=prompt
+            )
+            
+            # Parse response
+            response_text = response.text.strip()
+            response_text = re.sub(r'^```(?:json)?\n', '', response_text)
+            response_text = re.sub(r'\n```$', '', response_text)
+            
+            result = json.loads(response_text)
+            
+            # Extract selected images
+            selected_images = []
+            for selection in result.get('selected_images', []):
+                idx = selection['index']
+                if 0 <= idx < len(images):
+                    img = images[idx].copy()
+                    img['reason'] = selection.get('reason', '')
+                    selected_images.append(img)
+            
+            return selected_images if selected_images else None
+            
+        except Exception as e:
+            print(f"Error selecting images: {e}")
+            return None
+    
+    async def explain_concept(self, concept_name: str, original_query: str, knowledge_tree: dict, use_images: bool = True, max_images: int = 3) -> str:
+        """
+        Generate a detailed explanation for a specific concept, optionally with Wikipedia images.
+        
+        Args:
+            concept_name: The concept to explain
+            original_query: The original learning goal
+            knowledge_tree: The full knowledge tree context
+            use_images: Whether to try to include Wikipedia images (default: True)
+            max_images: Maximum number of images to include (default: 3)
+        """
+        # Try to find relevant Wikipedia images if requested
+        selected_images = None
+        if use_images:
+            try:
+                selected_images = await self._find_wikipedia_images(concept_name, max_images)
+            except Exception as e:
+                print(f"Could not load images for {concept_name}: {e}")
+                selected_images = None
+        
+        # Build the prompt
         prompt = f"""You are an expert educator explaining concepts in a clear, detailed manner.
 
 Original Learning Goal: "{original_query}"
@@ -191,7 +298,38 @@ Full Knowledge Map Context:
 {json.dumps(knowledge_tree, indent=2)}
 
 Now, provide a detailed explanation specifically for this concept: "{concept_name}"
+"""
+        
+        # Add image information if available
+        if selected_images:
+            prompt += f"""
+Available illustrations from Wikipedia (use these strategically in your explanation):
+"""
+            for i, img in enumerate(selected_images):
+                prompt += f"""
+Image {i}:
+- Caption: {img['caption'][:150]}
+- Why relevant: {img.get('reason', 'Illustrates the concept')}
+"""
+            prompt += """
+**ABSOLUTELY CRITICAL - IMAGE REFERENCE FORMAT:**
 
+CORRECT way to show images:
+✓ "The visual proof [IMG:0] demonstrates this concept."
+✓ "Consider the animation below:\n\n[IMG:1]\n\nThis shows..."
+
+WRONG - DO NOT DO THIS:
+✗ ![caption](URL)
+✗ (https://upload.wikimedia.org/...)
+✗ ![Image](IMAGE_0)
+✗ Any URL or markdown syntax
+
+YOU MUST ONLY USE: [IMG:0], [IMG:1], [IMG:2]
+Do not write ANY URLs. Do not write ANY markdown image syntax.
+ONLY write [IMG:X] where X is the image number.
+"""
+        
+        prompt += f"""
 Your explanation should:
 1. Focus ONLY on explaining "{concept_name}" in detail
 2. Be aware of the context (the original goal was "{original_query}")
@@ -200,13 +338,25 @@ Your explanation should:
 5. If relevant, briefly mention how it connects to the broader learning path
 6. Keep the explanation clear, educational, and accessible
 7. Use markdown formatting for better readability
-8. **IMPORTANT: For any mathematical formulas or equations, use LaTeX notation:**
+"""
+        
+        if selected_images:
+            prompt += f"""8. **Include the provided images** where they help illustrate your explanation using [IMG:0], [IMG:1], etc.
+9. **IMPORTANT: For any mathematical formulas or equations, use LaTeX notation:**
+   - For inline math, use single dollar signs: $x^2 + y^2 = z^2$
+   - For display math (centered equations), use double dollar signs: $$E = mc^2$$
+   - Example: "The quadratic formula is $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$"
+10. Aim for 3-5 paragraphs with images integrated naturally
+"""
+        else:
+            prompt += f"""8. **IMPORTANT: For any mathematical formulas or equations, use LaTeX notation:**
    - For inline math, use single dollar signs: $x^2 + y^2 = z^2$
    - For display math (centered equations), use double dollar signs: $$E = mc^2$$
    - Example: "The quadratic formula is $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$"
 9. Aim for 3-5 paragraphs
-
-Provide a focused, comprehensive explanation of: {concept_name}"""
+"""
+        
+        prompt += f"\nProvide a focused, comprehensive explanation of: {concept_name}"
 
         try:
             # Use asyncio.wait_for to enforce a hard timeout
@@ -215,7 +365,31 @@ Provide a focused, comprehensive explanation of: {concept_name}"""
                 timeout=30.0  # Hard timeout of 30 seconds for explanation
             )
             explanation = response.content if hasattr(response, 'content') else str(response)
-            return explanation.strip()
+            explanation = explanation.strip()
+            
+            # Convert [IMG:X] references to markdown image syntax with correct URLs
+            if selected_images:
+                # Remove any lines containing Wikipedia URLs (LLM sometimes ignores instructions)
+                lines = explanation.split('\n')
+                cleaned_lines = []
+                for line in lines:
+                    if 'upload.wikimedia.org' not in line.lower():
+                        cleaned_lines.append(line)
+                explanation = '\n'.join(cleaned_lines)
+                
+                # Convert [IMG:X] references to proper markdown
+                for i, img in enumerate(selected_images):
+                    reference = f'[IMG:{i}]'
+                    caption = img['caption'][:100] if img['caption'] else f"Image {i}"
+                    url = img['url']
+                    markdown_image = f"\n\n![{caption}]({url})\n\n"
+                    explanation = explanation.replace(reference, markdown_image)
+                
+                # Clean up extra whitespace
+                explanation = re.sub(r'\n{3,}', '\n\n', explanation)
+            
+            return explanation
+            
         except asyncio.TimeoutError:
             print("Explanation request timed out")
             return "⚠️ **Request Timed Out**\n\nThe request took too long. This might be due to API rate limits. Please try again in a moment."
