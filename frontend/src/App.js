@@ -4,6 +4,7 @@ import MarkdownWithLatex from './components/MarkdownWithLatex';
 import { useTooltip } from './hooks/useTooltip';
 import { useD3Tree } from './hooks/useD3Tree';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
+import API_URL from './config';
 import './styles/App.css';
 
 function App() {
@@ -34,7 +35,7 @@ function App() {
     setChatInput('');
     
     try {
-      const response = await fetch('http://localhost:8000/api/explain-concept', {
+      const response = await fetch(`${API_URL}/api/explain-concept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,7 +74,7 @@ function App() {
     setChatLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/api/chat-about-explanation', {
+      const response = await fetch(`${API_URL}/api/chat-about-explanation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ function App() {
     setKnowledgeTree(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/knowledge-map', {
+      const response = await fetch(`${API_URL}/api/knowledge-map`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

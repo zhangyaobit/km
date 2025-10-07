@@ -39,7 +39,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React default port
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "https://*.onrender.com",  # Render frontend
+        "*"  # Allow all origins for now (you can restrict this later)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
