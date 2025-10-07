@@ -1,29 +1,33 @@
-# Knowledge Map 🗺️
+# MindTrail 🧭
 
-An AI-powered application that generates interactive visual knowledge dependency trees for any concept you want to learn. Uses Large Language Models to analyze learning paths and D3.js to create beautiful, explorable visualizations.
+An AI-powered learning platform that visualizes the landscape of human understanding. MindTrail creates dynamic "learning trails" that guide you through the exact concepts you need to reach any destination, from quantum physics to machine learning.
 
-## Overview
+## About MindTrail
 
-Knowledge Map helps learners understand the prerequisites and dependencies needed to master any subject. Simply enter a concept, and the AI will generate a comprehensive tree showing:
+MindTrail is an applied research lab reimagining how humans learn and explore science. We believe understanding science should feel less like scaling a cliff and more like following a well-marked trail through a national park.
+
+MindTrail helps learners discover the prerequisites and dependencies needed to master any subject. Simply enter a concept, and our AI will generate a personalized learning trail showing:
 - Foundational knowledge required
 - Progressive learning paths
 - Relationships between concepts
-- Detailed descriptions for each node
+- Detailed explanations and interactive chat for each concept
 
 ## Features
 
 ### Backend
-- 🤖 **AI-Powered Analysis**: Uses Google's Gemini LLM to generate knowledge trees
+- 🤖 **AI-Powered Analysis**: Uses Google's Gemini LLM to generate learning trails
 - 📊 **Structured Data**: Returns hierarchical JSON trees
+- 💬 **Interactive Chat**: Ask questions about any concept with context-aware responses
 - 🔧 **Robust Parsing**: Handles various response formats with fallback mechanisms
 - ⚡ **FastAPI**: High-performance async API
 
 ### Frontend
-- 🎨 **Beautiful UI**: Modern gradient design with smooth animations
-- 🌳 **Interactive Trees**: Powered by D3.js with zoom and pan
-- 💡 **Tooltips**: Hover for detailed descriptions
+- 🎨 **Clean, Modern UI**: ChatGPT-inspired interface with smooth animations
+- 🌳 **Interactive Learning Trails**: Powered by D3.js with zoom and pan
+- 💡 **Deep Exploration**: Click any concept for detailed explanations
+- 💬 **AI Chat**: Ask questions about each concept
 - 📱 **Responsive**: Works on different screen sizes
-- 🎯 **User-Friendly**: Simple, intuitive interface
+- 🎯 **Intuitive**: Simple, user-friendly interface
 
 ## Project Structure
 
@@ -94,19 +98,20 @@ npm start
 
 ## Usage
 
-1. **Enter a Concept**: Type what you want to learn (e.g., "Machine Learning", "React", "Calculus")
-2. **Generate Map**: Click the button and wait for the AI to analyze
+1. **Enter a Concept**: Type what you want to learn (e.g., "Machine Learning", "React", "General Relativity")
+2. **Generate Learning Trail**: Click the button and let AI map your path
 3. **Explore**: 
-   - Hover over nodes to see descriptions
+   - Click on any node to get detailed explanations
+   - Chat with AI to ask questions about each concept
    - Zoom in/out with mouse wheel
    - Pan by clicking and dragging
-   - Follow the tree from fundamentals to advanced topics
+   - Follow your trail from fundamentals to advanced topics
 
 ## Example Concepts to Try
 
 - Programming: "React", "Python", "Design Patterns"
 - Mathematics: "Linear Algebra", "Calculus", "Statistics"
-- Science: "Quantum Mechanics", "Genetics", "Thermodynamics"
+- Science: "Quantum Mechanics", "General Relativity", "Genetics", "Thermodynamics"
 - Business: "Financial Modeling", "Marketing Strategy", "Supply Chain Management"
 
 ## Technology Stack
@@ -118,9 +123,9 @@ npm start
 - **Uvicorn**: ASGI server
 
 ### Frontend
-- **React**: UI component library
-- **D3.js**: Data visualization library
-- **Modern CSS**: Animations and gradients
+- **React**: UI component library with React Router for navigation
+- **D3.js**: Data visualization library for interactive learning trails
+- **Modern Design**: Clean, ChatGPT-inspired interface
 
 ## API Documentation
 
@@ -129,8 +134,9 @@ Once the backend is running, visit [http://localhost:8000/docs](http://localhost
 ## Contributing
 
 Feel free to enhance the project! Some ideas:
-- Add more visualization types (radial, force-directed)
-- Implement node expansion/collapse
+- Add trail sharing and collaboration features
+- Implement more visualization types (radial, force-directed)
 - Add export functionality (PNG, JSON)
-- Include learning resources for each node
+- Include curated learning resources for each node
 - Multi-language support
+- Community-contributed trails

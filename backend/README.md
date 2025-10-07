@@ -1,9 +1,6 @@
-# Backend Service
+# MindTrail Backend Service
 
-This is a FastAPI backend service that responds to messages with predefined responses:
-- "hello" → returns "hi"
-- "bye" → returns "see you"
-- anything else → returns "good"
+This is a FastAPI backend service that powers the MindTrail learning platform. It uses Google's Gemini LLM to generate personalized learning trails and provide interactive explanations.
 
 ## Prerequisites
 
