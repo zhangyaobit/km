@@ -92,7 +92,7 @@ const About = () => {
           </p>
 
           <p style={{ margin: 0 }}>
-            At MindTrail, we see education as a collective journey. Learners can share their trails, 
+            At MindTrail, we see learning as a collective journey. Learners can share their trails, 
             collaborate with others, and contribute new insights to the global map. By combining 
             artificial intelligence with human creativity, we aim to spark a modern renaissance of 
             curiosity—one where exploring science is open, social, and profoundly accelerated.
